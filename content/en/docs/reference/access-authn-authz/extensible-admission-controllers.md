@@ -55,8 +55,8 @@ In the following, we describe how to quickly experiment with admission webhooks.
 
 Please refer to the implementation of the [admission webhook server](https://github.com/kubernetes/kubernetes/blob/release-1.21/test/images/agnhost/webhook/main.go)
 that is validated in a Kubernetes e2e test. The webhook handles the
-`AdmissionReview` request sent by the API servers, and sends back its decision
-as an `AdmissionReview` object in the same version it received.
+AdmissionReview request sent by the API servers, and sends back its decision
+as an AdmissionReview object in the same version it received.
 
 See the [webhook request](#request) section for details on the data sent to webhooks.
 
@@ -226,7 +226,7 @@ users:
 
 Of course you need to set up the webhook server to handle these authentication requests.
 
-### Authenticating to admission webhooks    {#authenticating-to-admission-webhooks}
+### Authenticating to admission webhooks {#authenticating-to-admission-webhooks}
 
 {{< feature-state feature_gate_name="APIServerWebhookAuthenticationToken" >}}
 
@@ -240,7 +240,7 @@ scoped to particular API groups.
 
 {{< note >}}
 This mechanism implements token issuance. Automatic token acquisition and
-presentation by the kube-apiserver and aggregated API servers when calling
+presentation by the `kube-apiserver` and aggregated API servers when calling
 webhooks, along with a webhook-side token verification library, are not part of
 this mechanism.
 {{< /note >}}
@@ -248,24 +248,24 @@ this mechanism.
 #### How it works
 
 The TokenRequest API is extended to support issuing tokens bound to
-`ValidatingWebhookConfiguration` or `MutatingWebhookConfiguration` objects.
+ValidatingWebhookConfiguration or MutatingWebhookConfiguration objects.
 These tokens include attestation claims that specify which API groups the token
 authorizes its bearer to query the webhook about. The token becomes invalid if
 the referenced webhook configuration is deleted.
 
 To request a webhook authentication token, a TokenRequest must include:
 
-1. **A `boundObjectRef`** referencing either a `ValidatingWebhookConfiguration` or
-   a `MutatingWebhookConfiguration`. The referenced webhook configuration must
+1. **A `.spec.boundObjectRef` field** referencing either a ValidatingWebhookConfiguration or
+   a MutatingWebhookConfiguration. The referenced webhook configuration must
    exist and must not be marked for deletion.
 
-1. **An `attestations` field** with exactly one entry: the key
+1. **A `.spec.attestations` field** with exactly one entry: the key
    `admissionReviewAPIGroups` with a single-element string array value specifying
    the API group this token covers. The value `"*"` means all API groups.
    The specified API group must match a rule in the referenced webhook
    configuration.
 
-1. **An `audiences` field** with exactly one element that matches the webhook's
+1. **A `.spec.audiences` field** with exactly one element that matches the webhook's
    endpoint:
    - For URL-configured webhooks: the audience must be an exact match of the
      URL.
@@ -274,7 +274,7 @@ To request a webhook authentication token, a TokenRequest must include:
      to `443` and `<path>` defaults to `/` if not specified in the webhook
      configuration.
 
-1. **An `expirationSeconds`** value. The maximum allowed expiration for
+1. **A `.spec.expirationSeconds`** value. The maximum allowed expiration for
    webhook-bound tokens is 600 seconds (10 minutes).
 
 #### Authorization requirements
@@ -299,14 +299,14 @@ webhook authentication tokens scoped to the `mygroup.example.com` API group:
 
 When a webhook authentication token is verified through
 [TokenReview](/docs/reference/kubernetes-api/definitions/token-review-v1-authentication/),
-the following additional keys are populated in the `status.user.extra` field of
+the following additional keys are populated in the `.status.user.extra` field of
 the response:
 
-For tokens bound to a `ValidatingWebhookConfiguration`:
+For tokens bound to a ValidatingWebhookConfiguration:
 - `authentication.kubernetes.io/validatingwebhookconfiguration-name`
 - `authentication.kubernetes.io/validatingwebhookconfiguration-uid`
 
-For tokens bound to a `MutatingWebhookConfiguration`:
+For tokens bound to a MutatingWebhookConfiguration:
 - `authentication.kubernetes.io/mutatingwebhookconfiguration-name`
 - `authentication.kubernetes.io/mutatingwebhookconfiguration-uid`
 
@@ -315,7 +315,7 @@ For all webhook authentication tokens:
   the API group the token is authorized for.
 
 The underlying JWT includes these claims in the `kubernetes.io` private claims
-namespace. For example, a token bound to a `MutatingWebhookConfiguration`:
+namespace. For example, a token bound to a MutatingWebhookConfiguration:
 
 ```json
 {
@@ -336,11 +336,11 @@ namespace. For example, a token bound to a `MutatingWebhookConfiguration`:
 ### Request
 
 Webhooks are sent as POST requests, with `Content-Type: application/json`,
-with an `AdmissionReview` API object in the `admission.k8s.io` API group
+with an AdmissionReview API object in the `admission.k8s.io` API group
 serialized to JSON as the body.
 
-Webhooks can specify what versions of `AdmissionReview` objects they accept
-with the `admissionReviewVersions` field in their configuration:
+Webhooks can specify what versions of AdmissionReview objects they accept
+with the `.webhooks[].admissionReviewVersions` field in their configuration:
 
 ```yaml
 apiVersion: admissionregistration.k8s.io/v1
@@ -350,17 +350,17 @@ webhooks:
   admissionReviewVersions: ["v1", "v1beta1"]
 ```
 
-`admissionReviewVersions` is a required field when creating webhook configurations.
-Webhooks are required to support at least one `AdmissionReview`
+`.webhooks[].admissionReviewVersions` is a required field when creating webhook configurations.
+Webhooks are required to support at least one AdmissionReview
 version understood by the current and previous API server.
 
-API servers send the first `AdmissionReview` version in the `admissionReviewVersions` list they support.
+API servers send the first AdmissionReview version in the `.webhooks[].admissionReviewVersions` list they support.
 If none of the versions in the list are supported by the API server, the configuration will not be allowed to be created.
-If an API server encounters a webhook configuration that was previously created and does not support any of the `AdmissionReview`
+If an API server encounters a webhook configuration that was previously created and does not support any of the AdmissionReview
 versions the API server knows how to send, attempts to call to the webhook will fail and be subject to the [failure policy](#failure-policy).
 
-This example shows the data contained in an `AdmissionReview` object
-for a request to update the `scale` subresource of an `apps/v1` `Deployment`:
+This example shows the data contained in an AdmissionReview object
+for a request to update the `scale` subresource of an `apps/v1` Deployment:
 
 ```yaml
 {
@@ -471,13 +471,13 @@ for a request to update the `scale` subresource of an `apps/v1` `Deployment`:
 ### Response
 
 Webhooks respond with a 200 HTTP status code, `Content-Type: application/json`,
-and a body containing an `AdmissionReview` object (in the same version they were sent),
-with the `response` stanza populated, serialized to JSON.
+and a body containing an AdmissionReview object (in the same version they were sent),
+with the `.response` stanza populated, serialized to JSON.
 
-At a minimum, the `response` stanza must contain the following fields:
+At a minimum, the `.response` stanza must contain the following fields:
 
-* `uid`, copied from the `request.uid` sent to the webhook
-* `allowed`, either set to `true` or `false`
+* `.response.uid`, copied from the `.request.uid` sent to the webhook
+* `.response.allowed`, either set to `true` or `false`
 
 Example of a minimal response from a webhook to allow a request:
 
@@ -506,9 +506,9 @@ Example of a minimal response from a webhook to forbid a request:
 ```
 
 When rejecting a request, the webhook can customize the http code and message returned to the user
-using the `status` field. The specified status object is returned to the user.
+using the `.status` field. The specified status object is returned to the user.
 See the [API documentation](/docs/reference/generated/kubernetes-api/{{< param "version" >}}/#status-v1-meta)
-for details about the `status` type.
+for details about the `.status` type.
 Example of a response to forbid a request, customizing the HTTP status code and message presented to the user:
 
 ```json
@@ -583,15 +583,15 @@ If more than 4096 characters of warning messages are added (from all sources), a
 
 ## Webhook configuration
 
-To register admission webhooks, create `MutatingWebhookConfiguration` or `ValidatingWebhookConfiguration` API objects.
-The name of a `MutatingWebhookConfiguration` or a `ValidatingWebhookConfiguration` object must be a valid
+To register admission webhooks, create MutatingWebhookConfiguration or ValidatingWebhookConfiguration API objects.
+The name of a MutatingWebhookConfiguration or a ValidatingWebhookConfiguration object must be a valid
 [DNS subdomain name](/docs/concepts/overview/working-with-objects/names#dns-subdomain-names).
 
 {{< note >}}
 Names ending in `.static.k8s.io` are reserved for
 [manifest-based admission control](/docs/reference/access-authn-authz/manifest-admission-control/)
 and cannot be used for API-based webhook configurations. This reservation is
-enforced when the `ManifestBasedAdmissionControlConfig`
+enforced when the ManifestBasedAdmissionControlConfig
 [feature gate](/docs/reference/command-line-tools-reference/feature-gates/#ManifestBasedAdmissionControlConfig) is enabled.
 {{< /note >}}
 
@@ -677,15 +677,15 @@ webhooks:
         scope: "*"
 ```
 
-### Matching requests: objectSelector
+### Matching requests: .webhooks[].objectSelector
 
 Webhooks may optionally limit which requests are intercepted based on the labels of the
 objects they would be sent, by specifying an `objectSelector`. If specified, the objectSelector
-is evaluated against both the object and oldObject that would be sent to the webhook,
+is evaluated against both the object and `oldObject` that would be sent to the webhook,
 and is considered to match if either object matches the selector.
 
 A null object (`oldObject` in the case of create, or `newObject` in the case of delete),
-or an object that cannot have labels (like a `DeploymentRollback` or a `PodProxyOptions` object)
+or an object that cannot have labels (like a DeploymentRollback or a PodProxyOptions object)
 is not considered to match.
 
 Use the object selector only if the webhook is opt-in, because end users may skip
@@ -712,7 +712,7 @@ webhooks:
 See [labels concept](/docs/concepts/overview/working-with-objects/labels)
 for more examples of label selectors.
 
-### Matching requests: namespaceSelector
+### Matching requests: .webhooks[].namespaceSelector
 
 Webhooks may optionally limit which requests for namespaced resources are intercepted,
 based on the labels of the containing namespace, by specifying a `namespaceSelector`.
@@ -767,7 +767,7 @@ webhooks:
 See [labels concept](/docs/concepts/overview/working-with-objects/labels)
 for more examples of label selectors.
 
-### Matching requests: matchPolicy
+### Matching requests: .webhooks[].matchPolicy
 
 API servers can make objects available via multiple API groups or versions.
 
@@ -801,7 +801,7 @@ does not intercept deployments created via `apps/v1` APIs. For that reason, webh
 for stable versions of resources.
 
 This example shows a validating webhook that intercepts modifications to deployments (no matter the API group or version),
-and is always sent an `apps/v1` `Deployment` object:
+and is always sent an `apps/v1` Deployment object:
 
 ```yaml
 apiVersion: admissionregistration.k8s.io/v1
@@ -819,7 +819,7 @@ webhooks:
 
 The `matchPolicy` for an admission webhooks defaults to `Equivalent`.
 
-### Matching requests: `matchConditions`
+### Matching requests: `.webhooks[].matchConditions`
 
 {{< feature-state feature_gate_name="AdmissionWebhookMatchConditions" >}}
 
@@ -986,7 +986,7 @@ which is a PEM-encoded CA bundle for validating the webhook's server certificate
 
 ### Side effects
 
-Webhooks typically operate only on the content of the `AdmissionReview` sent to them.
+Webhooks typically operate only on the content of the AdmissionReview sent to them.
 Some webhooks, however, make out-of-band changes as part of processing admission requests.
 
 Webhooks that make out-of-band changes ("side effects") must also have a reconciliation mechanism
